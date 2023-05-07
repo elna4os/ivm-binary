@@ -18,15 +18,13 @@ class IVMBinary(ClassifierMixin, BaseEstimator):
         self,
         alpha: float = 1e-3,
         tol: float = 1e-3,
-        std: float = 10,
-        random_state: int = 42
+        std: float = 10
     ) -> None:
         """
         Args:
             alpha (float, optional): Regularization strength. Defaults to 1.
             tol (float, optional): Tolerance. Defaults to 1e-3.
             std (float, optional): RBF standard deviation. Defaults to 0.1.
-            random_state (int, optional): Random state. Defaults to 42.
         """
 
         self.alpha = alpha
@@ -60,21 +58,25 @@ class IVMBinary(ClassifierMixin, BaseEstimator):
                 if i in S:
                     continue
                 S_tmp = S + [i]
+
                 # Compute distances
                 d = rbf_kernel(X, x_curr.reshape(1, -1), gamma=self.gamma_)
+
                 # Temporary K1 and K2
                 K1_curr = np.hstack([K1, d])
                 K2_curr = np.pad(K2, (0, 1), constant_values=(0, 0))
                 K2_curr[-1] = d[S_tmp].reshape(-1,)
                 K2_curr[:, -1] = d[S_tmp].reshape(-1,)
-                # Compute loss
+
+                # NLL
                 main_loss = (1 / n) * ones.T @ np.log2(ones + np.exp(-y * (K1_curr @ a[S_tmp])))
                 reg_loss = (self.alpha / 2) * a[S_tmp].T @ K2_curr @ a[S_tmp]
                 H_curr = float(main_loss + reg_loss)
 
                 hist.append((i, H_curr, d))
+
             # Select best point
-            hist.sort(key=lambda x: x[1])
+            hist.sort(key=lambda x: (x[1], x[0]))
             argmin_idx, min_loss, d = hist[0]
             logger.info(f'loss: {min_loss}, import point idx: {argmin_idx}')
             S.append(argmin_idx)
@@ -116,7 +118,7 @@ class IVMBinary(ClassifierMixin, BaseEstimator):
 if __name__ == '__main__':
     X, y = load_breast_cancer(return_X_y=True)
     X_train, X_test, y_train, y_test = train_test_split(
-        X, 
+        X,
         y,
         test_size=100,
         random_state=42
