@@ -5,15 +5,16 @@ Binary IVM implementation
 import numpy as np
 from loguru import logger
 from sklearn.base import BaseEstimator, ClassifierMixin
-from sklearn.datasets import load_breast_cancer
-from sklearn.metrics import classification_report, roc_auc_score
 from sklearn.metrics.pairwise import rbf_kernel
-from sklearn.model_selection import train_test_split
-from sklearn.utils.validation import check_X_y
+from sklearn.utils.validation import check_is_fitted, check_X_y
 from tqdm import tqdm
 
 
 class IVMBinary(ClassifierMixin, BaseEstimator):
+    """
+    IVM algorithm for binary classification
+    """
+
     def __init__(
         self,
         alpha: float = 1e-3,
@@ -31,10 +32,10 @@ class IVMBinary(ClassifierMixin, BaseEstimator):
         self.tol = tol
         self.std = std
 
-    def f_(self, X1: np.array, X2: np.array, a: np.array):
+    def f_(self, X1: np.ndarray, X2: np.ndarray, a: np.ndarray) -> np.ndarray:
         return (rbf_kernel(X1, X2, gamma=self.gamma_) @ a).reshape(-1, 1)
 
-    def fit(self, X: np.array, y: np.array):
+    def fit(self, X: np.ndarray, y: np.ndarray):
         X, y = check_X_y(X=X, y=y)
         y = y.reshape(-1, 1)
         n = len(X)
@@ -111,26 +112,10 @@ class IVMBinary(ClassifierMixin, BaseEstimator):
 
         return self
 
-    def predict(self, X: np.array):
+    def predict_proba(self, X: np.ndarray) -> np.ndarray:
+        check_is_fitted(self, ['X_', 'a_'])
+
         return self.f_(X, self.X_, self.a_).reshape(-1,)
 
-
-if __name__ == '__main__':
-    X, y = load_breast_cancer(return_X_y=True)
-    X_train, X_test, y_train, y_test = train_test_split(
-        X,
-        y,
-        test_size=100,
-        random_state=42
-    )
-
-    clf = IVMBinary()
-    clf.fit(X_train, y_train)
-
-    preds_test = clf.predict(X_test)
-    test_rocauc = roc_auc_score(y_true=y_test, y_score=preds_test)
-    logger.info(f'Test ROC-AUC: {test_rocauc}')
-    logger.info(classification_report(
-        y_true=y_test,
-        y_pred=(preds_test >= 0.5) * 1
-    ))
+    def predict(self, X: np.ndarray, threshold: float = 0.5) -> np.ndarray:
+        return (self.predict_proba(X) >= threshold) * 1

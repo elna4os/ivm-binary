@@ -1,3 +1,5 @@
 *.pyc
+*.pkl
 
 .vscode/
+.pytest_cache
